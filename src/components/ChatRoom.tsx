@@ -81,7 +81,8 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentRoom, currentUser }) => {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-900">
+    <div className="flex flex-col h-full">
+      {/* Header */}
       <div className="flex justify-between items-center p-4 border-b border-gray-800">
         <h2 className="text-xl font-bold">{currentRoom}</h2>
         <div className="flex gap-2">
@@ -97,19 +98,25 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentRoom, currentUser }) => {
         </div>
       </div>
 
-      <MessageList 
-        messages={messages} 
-        currentUser={currentUser} 
-        messagesEndRef={messagesEndRef}
-      />
+      {/* Messages Container */}
+      <div className="flex-1 overflow-y-auto">
+        <MessageList 
+          messages={messages} 
+          currentUser={currentUser} 
+          messagesEndRef={messagesEndRef}
+        />
+      </div>
       
-      <MessageInput
-        message={message}
-        setMessage={setMessage}
-        onSend={handleSend}
-        isGeneratingJoke={isGeneratingJoke}
-        streamedResponse={streamedResponse}
-      />
+      {/* Input Fixed at Bottom */}
+      <div className="mt-auto border-t border-gray-800">
+        <MessageInput
+          message={message}
+          setMessage={setMessage}
+          onSend={handleSend}
+          isGeneratingJoke={isGeneratingJoke}
+          streamedResponse={streamedResponse}
+        />
+      </div>
 
       {showCustomization && (
         <RoomCustomization

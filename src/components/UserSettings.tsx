@@ -1,25 +1,31 @@
-import React, { useState, KeyboardEvent } from 'react';
+import React, { useState } from 'react';
 import { X, Upload, User } from 'lucide-react';
 import { useStore } from '../store';
 import { PRESET_AVATARS } from '../utils/avatars';
+import { nanoid } from 'nanoid';
 
 const UserSettings: React.FC = () => {
-  const { currentUser, setCurrentUser, toggleSettings } = useStore();
+  const { currentUser, setCurrentUser, toggleSettings } = useStore(state => ({
+    currentUser: state.currentUser,
+    setCurrentUser: state.setCurrentUser,
+    toggleSettings: state.toggleSettings
+  }));
+
   const [username, setUsername] = useState(currentUser?.name || '');
   const [selectedAvatar, setSelectedAvatar] = useState(currentUser?.avatar || PRESET_AVATARS[0].url);
 
   const handleSave = () => {
     if (username.trim()) {
       setCurrentUser({
-        id: currentUser?.id || crypto.randomUUID(),
-        name: username,
-        avatar: selectedAvatar,
+        id: currentUser?.id || nanoid(),
+        name: username.trim(),
+        avatar: selectedAvatar
       });
       toggleSettings();
     }
   };
 
-  const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && username.trim()) {
       handleSave();
     }
@@ -61,15 +67,6 @@ const UserSettings: React.FC = () => {
             />
           </div>
 
-          <button
-            onClick={handleSave}
-            disabled={!username.trim()}
-            className="w-full px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-          >
-            <Upload className="w-4 h-4" />
-            Save Changes
-          </button>
-
           <div>
             <label className="block text-sm font-medium mb-2">Choose Avatar</label>
             <div className="grid grid-cols-4 gap-3">
@@ -93,6 +90,15 @@ const UserSettings: React.FC = () => {
               ))}
             </div>
           </div>
+
+          <button
+            onClick={handleSave}
+            disabled={!username.trim()}
+            className="w-full px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          >
+            <Upload className="w-4 h-4" />
+            Save Changes
+          </button>
         </div>
       </div>
     </div>

@@ -8,25 +8,30 @@ import RoomList from './components/RoomList';
 export default function App() {
   const {
     currentUser,
+    currentRoom,
     showSettings,
     toggleSettings,
-    initializeBotRooms
+    initializeBotRooms,
+    addRoom,
+    initialized
   } = useStore();
 
   useEffect(() => {
     const init = async () => {
-      try {
-        await initializeBotRooms();
-        if (!currentUser) {
-          toggleSettings();
+      if (!initialized) {
+        try {
+          await initializeBotRooms();
+          if (!currentUser) {
+            toggleSettings();
+          }
+        } catch (error) {
+          console.error('Failed to initialize:', error);
         }
-      } catch (error) {
-        console.error('Error initializing:', error);
       }
     };
     
     init();
-  }, [currentUser, toggleSettings, initializeBotRooms]);
+  }, [initialized, currentUser, toggleSettings, initializeBotRooms]);
 
   if (!currentUser && !showSettings) {
     return (
@@ -35,7 +40,7 @@ export default function App() {
           <Ghost className="w-16 h-16 text-purple-400 mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-4">Welcome to NightShade</h1>
           <button
-            onClick={() => toggleSettings()}
+            onClick={toggleSettings}
             className="px-6 py-3 bg-purple-500/20 hover:bg-purple-500/30 rounded-lg transition-colors"
           >
             Set Up Profile
@@ -67,6 +72,7 @@ export default function App() {
                       icon: '🌙',
                       messages: [],
                       users: [currentUser],
+                      isPermanent: false
                     })}
                     className="w-full flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 transition-all"
                   >
@@ -78,9 +84,8 @@ export default function App() {
                 <RoomList />
               </div>
 
-              {/* Settings button at bottom */}
               <button 
-                onClick={() => toggleSettings()}
+                onClick={toggleSettings}
                 className="mt-4 w-full flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 transition-all"
               >
                 <Ghost className="w-4 h-4" />
@@ -91,8 +96,8 @@ export default function App() {
 
           {/* Main Content */}
           <div className="flex-1 bg-purple-900/20 backdrop-blur-lg rounded-lg border border-purple-500/20">
-            {currentRoom && currentUser ? (
-              <ChatRoom />
+            {currentRoom ? (
+              <ChatRoom currentRoom={currentRoom} currentUser={currentUser} />
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <Ghost className="w-16 h-16 text-purple-400 mb-4" />

@@ -23,7 +23,7 @@ export const MessageList: React.FC<Props> = ({ messages, currentUser, messagesEn
   };
 
   return (
-    <div className="space-y-4 px-4">
+    <div className="flex flex-col space-y-4 p-4">
       {messages.map((message) => {
         const isCurrentUser = message.userId === currentUser?.id;
         const userName = message.botName || getUserName(message.userId);
