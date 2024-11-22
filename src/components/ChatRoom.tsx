@@ -1,139 +1,133 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Edit, Users } from 'lucide-react';
 import { useStore } from '../store';
-import { BotMessage } from './BotMessage';
 import { MessageInput } from './MessageInput';
 import { MessageList } from './MessageList';
 import { RoomCustomization } from './RoomCustomization';
+import { getDatabase as getDB, ref, onValue } from 'firebase/database';
+import { User, Message, ChatRoom as ChatRoomType } from '../types';
 
-const ChatRoom: React.FC = () => {
-  const { currentRoom, currentUser, addMessage, rooms, deleteExpiredMessages } = useStore();
+interface ChatRoomProps {
+  currentRoom: string | null;
+  currentUser: User | null;
+}
+
+const ChatRoom: React.FC<ChatRoomProps> = ({ currentRoom, currentUser }) => {
+  const { addMessage } = useStore();
+  const [messages, setMessages] = useState<Message[]>([]);
   const [message, setMessage] = useState('');
   const [showCustomization, setShowCustomization] = useState(false);
   const [isGeneratingJoke, setIsGeneratingJoke] = useState(false);
   const [streamedResponse, setStreamedResponse] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messageInputRef = useRef<HTMLInputElement>(null);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout>();
-  
-  const room = rooms.find(r => r.id === currentRoom);
 
-  const scrollToBottom = useCallback((smooth = true) => {
-    if (scrollTimeoutRef.current) {
-      clearTimeout(scrollTimeoutRef.current);
-    }
-    scrollTimeoutRef.current = setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({
-        behavior: smooth ? 'smooth' : 'auto',
-        block: 'end'
-      });
-    }, 100);
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [room?.messages, scrollToBottom, streamedResponse]);
+    if (!currentRoom) return;
 
-  useEffect(() => {
-    if (isGeneratingJoke) {
+    const db = getDB();
+    const messagesRef = ref(db, `rooms/${currentRoom}/messages`);
+    
+    const unsubscribe = onValue(messagesRef, (snapshot) => {
+      const messagesData = snapshot.val();
+      if (!messagesData) {
+        setMessages([]);
+        return;
+      }
+
+      const messageArray = Object.entries(messagesData)
+        .map(([id, msg]: [string, any]) => ({
+          ...msg,
+          id,
+        }))
+        .sort((a, b) => a.timestamp - b.timestamp);
+
+      setMessages(messageArray);
       scrollToBottom();
-    }
-  }, [isGeneratingJoke, scrollToBottom]);
+    });
 
-  useEffect(() => {
-    messageInputRef.current?.focus();
-    scrollToBottom(false);
+    return () => unsubscribe();
   }, [currentRoom, scrollToBottom]);
 
-  useEffect(() => {
-    const cleanup = setInterval(() => {
-      deleteExpiredMessages();
-    }, 60000);
-    
-    return () => {
-      clearInterval(cleanup);
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-    };
-  }, [deleteExpiredMessages]);
-
-  const handleSend = useCallback(async () => {
+  const handleSend = async () => {
     if (!message.trim() || !currentRoom || !currentUser) return;
 
-    const currentMessage = message.trim();
-    setMessage('');
-
+    setIsGeneratingJoke(true);
     try {
       await addMessage(currentRoom, {
+        content: message,
         userId: currentUser.id,
-        content: currentMessage,
+        isBot: false
       });
-      scrollToBottom();
+      setMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
-      setMessage(currentMessage);
+    } finally {
+      setIsGeneratingJoke(false);
     }
-  }, [message, currentRoom, currentUser, addMessage, scrollToBottom]);
+  };
 
-  if (!room) return null;
+  useEffect(() => {
+    if (streamedResponse) {
+      setStreamedResponse('');
+    }
+  }, [streamedResponse]);
 
-  const activeUsers = room.users.filter(user => user.id !== 'bot');
+  if (!currentRoom || !currentUser) {
+    return <div className="flex-1 bg-gray-900 p-4">Sélectionne une room pour commencer...</div>;
+  }
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-4 p-4 border-b border-purple-500/20">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">{room.icon}</span>
-          <h2 className="text-xl font-bold">{room.name}</h2>
-          {!room.isPermanent && (
-            <button 
-              onClick={() => setShowCustomization(true)} 
-              className="p-2 rounded-full hover:bg-purple-500/20"
-            >
-              <Edit className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="px-4 py-2 rounded-lg bg-blue-500/20">
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              <span>{activeUsers.length} Users</span>
-            </div>
-          </div>
+    <div className="flex-1 flex flex-col bg-gray-900">
+      <div className="flex justify-between items-center p-4 border-b border-gray-800">
+        <h2 className="text-xl font-bold">{currentRoom}</h2>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowCustomization(true)}
+            className="p-2 hover:bg-gray-800 rounded-full"
+          >
+            <Edit className="w-5 h-5" />
+          </button>
+          <button className="p-2 hover:bg-gray-800 rounded-full">
+            <Users className="w-5 h-5" />
+          </button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <MessageList messages={room.messages} currentUser={currentUser} />
-        
-        {isGeneratingJoke && streamedResponse && (
-          <div className="flex justify-start px-4 pb-4">
-            <div className="max-w-[70%] p-3 rounded-lg bg-blue-500/20 text-blue-100">
-              <div className="break-words">{streamedResponse}</div>
-            </div>
-          </div>
-        )}
-        
-        <BotMessage isGenerating={isGeneratingJoke && !streamedResponse} />
-        
-        <div ref={messagesEndRef} className="h-4" />
-      </div>
-
+      <MessageList 
+        messages={messages} 
+        currentUser={currentUser} 
+        messagesEndRef={messagesEndRef}
+      />
+      
       <MessageInput
-        ref={messageInputRef}
         message={message}
         setMessage={setMessage}
         onSend={handleSend}
+        isGeneratingJoke={isGeneratingJoke}
+        streamedResponse={streamedResponse}
       />
 
       {showCustomization && (
         <RoomCustomization
-          room={room}
+          room={
+            {
+              id: currentRoom || '',
+              name: currentRoom || '',
+              icon: '🌙',
+              messages: messages,
+              users: [],
+              isPermanent: false,
+              isBot: false
+            } as ChatRoomType
+          }
           onClose={() => setShowCustomization(false)}
         />
       )}
+      <div ref={messagesEndRef} />
     </div>
   );
 };

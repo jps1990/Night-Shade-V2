@@ -1,10 +1,10 @@
 import React from 'react';
 import { Hash, Bot, Users, Trash2, Lightbulb } from 'lucide-react';
 import { useStore } from '../store';
+import { ChatRoom } from '../types';
 
 const RoomList: React.FC = () => {
-  const store = useStore();
-  const { rooms, currentRoom, setCurrentRoom, deleteRoom } = store;
+  const { rooms = [], currentRoom, setCurrentRoom, deleteRoom } = useStore();
 
   const handleDeleteRoom = (roomId: string) => {
     if (window.confirm('Are you sure you want to delete this room?')) {
@@ -17,7 +17,7 @@ const RoomList: React.FC = () => {
   const userRooms = rooms.filter(room => !room.isPermanent && !room.isBot);
   const suggestionRoom = rooms.find(room => room.id === 'suggestions');
 
-  const RoomItem = ({ room }: { room: any }) => (
+  const RoomItem = ({ room }: { room: ChatRoom }) => (
     <div
       onClick={() => setCurrentRoom(room.id)}
       className={`w-full flex items-center justify-between px-4 py-2 rounded-lg transition-all cursor-pointer ${

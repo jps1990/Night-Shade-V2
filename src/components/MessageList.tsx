@@ -1,57 +1,57 @@
 import React from 'react';
-import { User } from '../store';
-
-interface Message {
-  id: string;
-  userId: string;
-  content: string;
-  timestamp: number;
-  isBot?: boolean;
-  botName?: string;
-  expiresAt: number;
-}
+import { formatDistanceToNow } from 'date-fns';
+import { fr } from 'date-fns/locale';
+import { useStore } from '../store';
+import { Message, User } from '../types';
 
 interface Props {
   messages: Message[];
   currentUser: User | null;
+  messagesEndRef: React.RefObject<HTMLDivElement>;
 }
 
-export const MessageList: React.FC<Props> = ({ messages, currentUser }) => {
-  const getTimeLeft = (expiresAt: number) => {
-    const timeLeft = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
-    const minutes = Math.floor(timeLeft / 60);
-    const seconds = timeLeft % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+export const MessageList: React.FC<Props> = ({ messages, currentUser, messagesEndRef }) => {
+  const { rooms } = useStore();
+
+  const getUserName = (userId: string) => {
+    if (userId === currentUser?.id) return currentUser.name;
+    for (const room of rooms) {
+      const user = room.users.find(u => u.id === userId);
+      if (user) return user.name;
+    }
+    return "Utilisateur inconnu";
   };
 
   return (
-    <div className="flex-1 overflow-y-auto space-y-4 p-4">
-      {messages.map((msg) => (
-        <div
-          key={msg.id}
-          className={`flex ${msg.userId === currentUser?.id ? 'justify-end' : 'justify-start'}`}
-        >
-          <div
-            className={`max-w-[70%] p-3 rounded-lg relative group ${
-              msg.isBot
-                ? 'bg-blue-500/20 text-blue-100'
-                : msg.userId === currentUser?.id
-                ? 'bg-purple-500/20 text-purple-100'
-                : 'bg-gray-700/50 text-gray-100'
-            }`}
+    <div className="space-y-4 px-4">
+      {messages.map((message) => {
+        const isCurrentUser = message.userId === currentUser?.id;
+        const userName = message.botName || getUserName(message.userId);
+        
+        return (
+          <div 
+            key={message.id}
+            className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
           >
-            {msg.isBot && msg.botName && (
-              <div className="absolute -top-6 left-0 text-sm font-medium text-blue-400">
-                {msg.botName}
+            <div className={`max-w-[70%] space-y-1`}>
+              <div className={`text-sm opacity-70 ${isCurrentUser ? 'text-right' : 'text-left'}`}>
+                {userName}
               </div>
-            )}
-            <div className="break-words">{msg.content}</div>
-            <span className="absolute -top-5 right-0 text-xs opacity-50 group-hover:opacity-100 transition-opacity">
-              {getTimeLeft(msg.expiresAt)}
-            </span>
+              <div className={`p-3 rounded-lg ${
+                isCurrentUser ? 'bg-purple-500/20' : 'bg-blue-500/20'
+              }`}>
+                <div className="break-words">{message.content}</div>
+                <div className="text-xs opacity-50 mt-1">
+                  {formatDistanceToNow(new Date(message.timestamp), { 
+                    addSuffix: true,
+                    locale: fr 
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };

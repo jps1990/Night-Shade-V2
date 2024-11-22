@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, KeyboardEvent } from 'react';
 import { X, Upload, User } from 'lucide-react';
 import { useStore } from '../store';
 import { PRESET_AVATARS } from '../utils/avatars';
@@ -16,6 +16,12 @@ const UserSettings: React.FC = () => {
         avatar: selectedAvatar,
       });
       toggleSettings();
+    }
+  };
+
+  const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && username.trim()) {
+      handleSave();
     }
   };
 
@@ -48,11 +54,21 @@ const UserSettings: React.FC = () => {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              onKeyPress={handleKeyPress}
               className="w-full bg-purple-900/20 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
               placeholder="Enter your username"
               autoFocus
             />
           </div>
+
+          <button
+            onClick={handleSave}
+            disabled={!username.trim()}
+            className="w-full px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          >
+            <Upload className="w-4 h-4" />
+            Save Changes
+          </button>
 
           <div>
             <label className="block text-sm font-medium mb-2">Choose Avatar</label>
@@ -77,15 +93,6 @@ const UserSettings: React.FC = () => {
               ))}
             </div>
           </div>
-
-          <button
-            onClick={handleSave}
-            disabled={!username.trim()}
-            className="w-full mt-6 px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Upload className="w-4 h-4" />
-            Save Changes
-          </button>
         </div>
       </div>
     </div>

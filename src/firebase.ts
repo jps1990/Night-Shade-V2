@@ -1,7 +1,7 @@
-import { initializeApp, getApps } from 'firebase/app';
-import { getDatabase, ref, onValue, set, push, update, remove, serverTimestamp, DatabaseReference, Database } from 'firebase/database';
-import { getAuth, signInAnonymously } from 'firebase/auth';
-import type { User, ChatRoom, Message } from './store';
+import { initializeApp } from 'firebase/app';
+import { getDatabase, ref, set, push, update, onValue, get } from 'firebase/database';
+import { User, ChatRoom, Message } from './types.ts';
+import { nanoid } from 'nanoid';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -13,181 +13,95 @@ const firebaseConfig = {
   databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL
 };
 
-let app: ReturnType<typeof initializeApp>;
-let database: Database;
-let auth: ReturnType<typeof getAuth>;
+let app = initializeApp(firebaseConfig);
+let database = getDatabase(app);
 
-export const initFirebase = () => {
-  try {
-    if (!getApps().length) {
-      app = initializeApp(firebaseConfig);
-      database = getDatabase(app);
-      auth = getAuth(app);
-      console.log('Firebase initialized successfully');
-    }
-  } catch (error) {
-    console.error('Error initializing Firebase:', error);
-  }
-};
+export const getDB = () => database;
 
-// Helper function to ensure database is initialized
-const getDB = (): Database => {
-  if (!database) {
-    throw new Error('Firebase database not initialized');
-  }
-  return database;
-};
+export async function addUser(user: User) {
+  if (!database) return;
+  const userRef = ref(database, `users/${user.id}`);
+  await set(userRef, user);
+}
 
-// Anonymously authenticate users
-export const signInUser = async () => {
-  try {
-    const { user } = await signInAnonymously(auth);
-    return user.uid;
-  } catch (error) {
-    console.error('Error signing in:', error);
-    return null;
-  }
-};
+export async function addRoom(room: Omit<ChatRoom, 'id'>) {
+  if (!database) return;
+  const roomsRef = ref(database, 'rooms');
+  const newRoomRef = push(roomsRef);
+  await set(newRoomRef, room);
+  return newRoomRef.key;
+}
 
-// Room operations
-export const subscribeToRooms = (callback: (rooms: ChatRoom[]) => void) => {
-  const db = getDB();
-  const roomsRef = ref(db, 'rooms');
+export async function updateRoom(roomId: string, updates: Partial<ChatRoom>) {
+  if (!database) return;
+  const roomRef = ref(database, `rooms/${roomId}`);
+  await update(roomRef, updates);
+}
+
+export async function addMessage(roomId: string, message: Message) {
+  if (!database) return;
+  const messagesRef = ref(database, `rooms/${roomId}/messages`);
+  const newMessageRef = push(messagesRef);
+  await set(newMessageRef, message);
+}
+
+export const cleanupExpiredMessages = () => {
+  if (!database) return;
+  const roomsRef = ref(database, 'rooms');
   
-  return onValue(roomsRef, (snapshot) => {
-    try {
-      const rooms: ChatRoom[] = [];
-      snapshot.forEach((childSnapshot) => {
-        const messages = childSnapshot.child('messages').val() || {};
-        rooms.push({
-          id: childSnapshot.key!,
-          ...childSnapshot.val(),
-          messages: Object.entries(messages).map(([id, msg]: [string, any]) => ({
-            id,
-            ...msg
-          }))
-        });
+  return onValue(roomsRef, async (snapshot) => {
+    const now = Date.now();
+    const updates: Record<string, any> = {};
+    
+    snapshot.forEach((roomSnapshot) => {
+      if (roomSnapshot.key === 'suggestions') return;
+      
+      const messages = roomSnapshot.child('messages').val() || {};
+      Object.entries(messages).forEach(([messageId, message]: [string, any]) => {
+        if (message.expiresAt < now) {
+          updates[`rooms/${roomSnapshot.key}/messages/${messageId}`] = null;
+        }
       });
-      callback(rooms);
-    } catch (error) {
-      console.error('Error processing rooms data:', error);
+    });
+    
+    if (Object.keys(updates).length > 0) {
+      await update(ref(database), updates);
     }
-  }, (error) => {
-    console.error('Error subscribing to rooms:', error);
   });
 };
 
-export const createRoom = async (room: Omit<ChatRoom, 'id'>) => {
-  const db = getDB();
-  const roomsRef = ref(db, 'rooms');
-  try {
-    const newRoomRef = push(roomsRef);
-    await set(newRoomRef, {
-      ...room,
-      createdAt: serverTimestamp(),
-      messages: {}
-    });
-    return newRoomRef.key;
-  } catch (error) {
-    console.error('Error creating room:', error);
-    throw error;
-  }
-};
+export async function getRooms() {
+  if (!database) return [];
+  const roomsRef = ref(database, 'rooms');
+  const snapshot = await get(roomsRef);
+  return Object.entries(snapshot.val() || {}).map(([id, room]: [string, any]) => ({
+    id,
+    ...room
+  }));
+}
 
-export const updateRoom = async (roomId: string, updates: Partial<ChatRoom>) => {
-  const db = getDB();
-  const roomRef = ref(db, `rooms/${roomId}`);
-  try {
-    await update(roomRef, {
-      ...updates,
-      updatedAt: serverTimestamp()
-    });
-  } catch (error) {
-    console.error('Error updating room:', error);
-    throw error;
-  }
-};
+export async function getRoom(roomId: string) {
+  if (!database) return null;
+  const roomRef = ref(database, `rooms/${roomId}`);
+  const snapshot = await get(roomRef);
+  return snapshot.val();
+}
 
-// Message operations
-export const addMessage = async (roomId: string, message: Omit<Message, 'id'>) => {
-  const db = getDB();
-  const messagesRef = ref(db, `rooms/${roomId}/messages`);
-  try {
-    const newMessageRef = push(messagesRef);
-    await set(newMessageRef, {
-      ...message,
-      timestamp: serverTimestamp(),
-      expiresAt: Date.now() + (10 * 60 * 1000) // 10 minutes
-    });
-    return newMessageRef.key;
-  } catch (error) {
-    console.error('Error adding message:', error);
-    throw error;
-  }
-};
-
-// Cleanup expired messages
-export const cleanupExpiredMessages = async () => {
-  const db = getDB();
-  const roomsRef = ref(db, 'rooms');
-  try {
-    onValue(roomsRef, async (snapshot) => {
-      const now = Date.now();
-      const updates: Record<string, any> = {};
-      
-      snapshot.forEach((roomSnapshot) => {
-        const messages = roomSnapshot.child('messages').val() || {};
-        Object.entries(messages).forEach(([messageId, message]: [string, any]) => {
-          if (message.expiresAt < now) {
-            updates[`rooms/${roomSnapshot.key}/messages/${messageId}`] = null;
-          }
-        });
-      });
-      
-      if (Object.keys(updates).length > 0) {
-        const db = getDB();
-        await update(ref(db), updates);
-      }
-    }, { onlyOnce: true });
-  } catch (error) {
-    console.error('Error cleaning up messages:', error);
-    throw error;
-  }
-};
-
-// User operations
-export const updateUserPresence = async (userId: string, user: User) => {
-  const db = getDB();
-  const userRef = ref(db, `users/${userId}`);
-  try {
-    await set(userRef, {
-      ...user,
-      lastSeen: serverTimestamp()
-    });
-  } catch (error) {
-    console.error('Error updating user presence:', error);
-    throw error;
-  }
-};
-
-export const subscribeToUsers = (callback: (users: User[]) => void) => {
-  const db = getDB();
-  const usersRef = ref(db, 'users');
+export async function addMessageToFirebase(roomId: string, message: Partial<Message>) {
+  if (!database) return;
   
-  return onValue(usersRef, (snapshot) => {
-    try {
-      const users: User[] = [];
-      snapshot.forEach((childSnapshot) => {
-        users.push({
-          id: childSnapshot.key!,
-          ...childSnapshot.val()
-        });
-      });
-      callback(users);
-    } catch (error) {
-      console.error('Error processing users data:', error);
-    }
-  }, (error) => {
-    console.error('Error subscribing to users:', error);
-  });
-};
+  const messagesRef = ref(database, `rooms/${roomId}/messages`);
+  const newMessageRef = push(messagesRef);
+  const fullMessage: Message = {
+    id: message.id || nanoid(),
+    userId: message.userId || 'system',
+    content: message.content || '',
+    timestamp: Date.now(),
+    expiresAt: message.expiresAt || Date.now() + (10 * 60 * 1000),
+    isBot: message.isBot || false,
+    botName: message.botName || undefined,
+    context: message.context || undefined
+  };
+  
+  await set(newMessageRef, fullMessage);
+}

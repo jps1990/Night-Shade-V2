@@ -6,14 +6,26 @@ import UserSettings from './components/UserSettings';
 import RoomList from './components/RoomList';
 
 export default function App() {
-  const store = useStore();
-  const { currentRoom, showSettings, currentUser, toggleSettings, addRoom, initializeBotRooms } = store;
+  const {
+    currentUser,
+    showSettings,
+    toggleSettings,
+    initializeBotRooms
+  } = useStore();
 
   useEffect(() => {
-    initializeBotRooms();
-    if (!currentUser) {
-      toggleSettings();
-    }
+    const init = async () => {
+      try {
+        await initializeBotRooms();
+        if (!currentUser) {
+          toggleSettings();
+        }
+      } catch (error) {
+        console.error('Error initializing:', error);
+      }
+    };
+    
+    init();
   }, [currentUser, toggleSettings, initializeBotRooms]);
 
   if (!currentUser && !showSettings) {
@@ -23,7 +35,7 @@ export default function App() {
           <Ghost className="w-16 h-16 text-purple-400 mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-4">Welcome to NightShade</h1>
           <button
-            onClick={toggleSettings}
+            onClick={() => toggleSettings()}
             className="px-6 py-3 bg-purple-500/20 hover:bg-purple-500/30 rounded-lg transition-colors"
           >
             Set Up Profile
@@ -68,7 +80,7 @@ export default function App() {
 
               {/* Settings button at bottom */}
               <button 
-                onClick={toggleSettings}
+                onClick={() => toggleSettings()}
                 className="mt-4 w-full flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 transition-all"
               >
                 <Ghost className="w-4 h-4" />

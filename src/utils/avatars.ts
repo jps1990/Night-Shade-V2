@@ -12,7 +12,7 @@ export const PRESET_AVATARS = [
     label: "Neon Mask"
   },
   {
-    url: "https://images.unsplash.com/photo-1551122089-4e3e72477abd?w=250&h=250&fit=crop&q=80",
+    url: "https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=250&h=250&fit=crop&q=80",
     label: "Galaxy"
   },
   {
