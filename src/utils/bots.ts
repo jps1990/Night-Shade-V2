@@ -2,10 +2,10 @@ import { nanoid } from 'nanoid';
 import { Bot, Message } from '../types';
 import { CohereClient } from 'cohere-ai';
 import { JESTER_PROMPT, GROK_PROMPT, JESTER_FALLBACKS, GROK_FALLBACKS } from './cohere';
-
 const MESSAGE_EXPIRY = 10 * 60 * 1000; // 10 minutes
 const DEFAULT_MAX_TOKENS = 100;
 const DEFAULT_TEMPERATURE = 0.8;
+import { MESSAGE_EXPIRY, DEFAULT_MAX_TOKENS, DEFAULT_TEMPERATURE } from './constants';
 
 let cohere: CohereClient | null = null;
 
@@ -30,7 +30,7 @@ const createBot = (name: string, prompt: string, fallbacks: string[]): Bot => ({
         prompt: `${prompt}\nMessage: ${message}\nContext: ${context || 'général'}`,
         maxTokens: DEFAULT_MAX_TOKENS,
         temperature: DEFAULT_TEMPERATURE,
-        model: 'command',
+        model: 'command-light',
       });
 
       return {

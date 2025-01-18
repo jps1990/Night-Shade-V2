@@ -1,8 +1,16 @@
 import { create } from 'zustand';
 import { nanoid } from 'nanoid';
 import { User, ChatRoom, Message } from './types';
-import { initFirebase, getDB, subscribeToRooms, subscribeToUsers } from './utils/firebase';
-import { ref, set, update, get } from 'firebase/database';
+import { initFirebase } from './utils/firebase';
+import { 
+  getDatabase, 
+  ref, 
+  set as firebaseSet, 
+  update as firebaseUpdate, 
+  get as firebaseGet,
+  onValue,
+  DatabaseReference 
+} from 'firebase/database';
 
 interface StoreState {
   currentUser: User | null;
@@ -26,8 +34,26 @@ interface StoreActions {
 }
 
 export const useStore = create<StoreState & StoreActions>((set, get) => {
-  // Initialize Firebase immediately
-  initFirebase().catch(console.error);
+  const database = getDatabase();
+
+  const addMessageToRoom = async (roomId: string, message: Partial<Message>) => {
+    if (!database) return;
+    const messageId = nanoid();
+    const messagesRef = ref(database, `rooms/${roomId}/messages/${messageId}`);
+    const fullMessage: Message = {
+      id: messageId,
+      userId: message.userId || 'system',
+      content: message.content || '',
+      timestamp: Date.now(),
+      expiresAt: Date.now() + (10 * 60 * 1000),
+      isBot: message.isBot || false,
+      ...(message.botName ? { botName: message.botName } : {}),
+      ...(message.context ? { context: message.context } : {})
+    };
+
+    await firebaseSet(messagesRef, fullMessage);
+    return fullMessage;
+  };
 
   return {
     // State initial
@@ -44,53 +70,32 @@ export const useStore = create<StoreState & StoreActions>((set, get) => {
     setInitialized: (value) => set({ initialized: value }),
     setRooms: (rooms) => set({ rooms }),
 
+    addMessage: async (roomId: string, message: Partial<Message>) => {
+      await addMessageToRoom(roomId, message);
+    },
+
     deleteRoom: async (roomId) => {
-      const db = await getDB();
-      if (!db) return;
-      const roomRef = ref(db, `rooms/${roomId}`);
-      await set(roomRef, null);
+      if (!database) return;
+      const roomRef = ref(database, `rooms/${roomId}`);
+      await firebaseSet(roomRef, null);
     },
 
     addRoom: async (room) => {
-      const db = await getDB();
-      if (!db) return;
+      if (!database) return;
       const roomId = nanoid();
-      const roomRef = ref(db, `rooms/${roomId}`);
-      await set(roomRef, { ...room, id: roomId });
+      const roomRef = ref(database, `rooms/${roomId}`);
+      await firebaseSet(roomRef, { ...room, id: roomId });
       set({ currentRoom: roomId });
     },
 
     updateRoom: async (roomId, updates) => {
-      const db = await getDB();
-      if (!db) return;
-
-      const roomRef = ref(db, `rooms/${roomId}`);
-      await update(roomRef, updates);
-    },
-
-    addMessage: async (roomId, message) => {
-      const db = await getDB();
-      if (!db) return;
-
-      const messageId = nanoid();
-      const messagesRef = ref(db, `rooms/${roomId}/messages/${messageId}`);
-      const fullMessage: Message = {
-        id: messageId,
-        userId: message.userId || 'system',
-        content: message.content || '',
-        timestamp: Date.now(),
-        expiresAt: Date.now() + (10 * 60 * 1000),
-        isBot: message.isBot || false,
-        botName: message.botName,
-        context: message.context
-      };
-
-      await set(messagesRef, fullMessage);
+      if (!database) return;
+      const roomRef = ref(database, `rooms/${roomId}`);
+      await firebaseUpdate(roomRef, updates);
     },
 
     initializeBotRooms: async () => {
-      const db = await getDB();
-      if (!db) return;
+      if (!database) return;
 
       const defaultRooms = [
         {
@@ -100,7 +105,8 @@ export const useStore = create<StoreState & StoreActions>((set, get) => {
           messages: [],
           users: [],
           isPermanent: true,
-          isBot: true
+          isBot: true,
+          description: "Le repaire du bouffon gothique"
         },
         {
           id: 'grok-domain',
@@ -109,7 +115,8 @@ export const useStore = create<StoreState & StoreActions>((set, get) => {
           messages: [],
           users: [],
           isPermanent: true,
-          isBot: true
+          isBot: true,
+          description: "L'antre du mentor brutal"
         },
         {
           id: 'suggestions',
@@ -118,17 +125,18 @@ export const useStore = create<StoreState & StoreActions>((set, get) => {
           messages: [],
           users: [],
           isPermanent: true,
-          isBot: false
+          isBot: false,
+          description: "Partagez vos idées et suggestions"
         }
       ];
 
       try {
         for (const room of defaultRooms) {
-          const roomRef = ref(db, `rooms/${room.id}`);
-          const snapshot = await get(roomRef);
+          const roomRef = ref(database, `rooms/${room.id}`);
+          const snapshot = await firebaseGet(roomRef);
           
           if (!snapshot.exists()) {
-            await set(roomRef, room);
+            await firebaseSet(roomRef, room);
           }
         }
         set({ initialized: true });

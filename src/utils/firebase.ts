@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, onValue, set, update, get } from 'firebase/database';
+import { getDatabase, ref, onValue, get } from 'firebase/database';
 import type { User, ChatRoom } from '../types';
 
 let app: ReturnType<typeof initializeApp> | null = null;
@@ -78,9 +78,9 @@ export function subscribeToUsers(callback: (users: User[]) => void) {
   });
 }
 
-export async function roomExists(roomId: string): Promise<boolean> {
-  if (!database) return false;
+export async function getRoom(roomId: string) {
+  if (!database) return null;
   const roomRef = ref(database, `rooms/${roomId}`);
   const snapshot = await get(roomRef);
-  return snapshot.exists();
+  return snapshot.val();
 }

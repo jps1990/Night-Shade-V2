@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Edit, Users } from 'lucide-react';
+import { Edit, Users, Settings } from 'lucide-react';
 import { useStore } from '../store';
 import { MessageInput } from './MessageInput';
 import { MessageList } from './MessageList';
 import { RoomCustomization } from './RoomCustomization';
-import { getDatabase as getDB, ref, onValue } from 'firebase/database';
-import { User, Message, ChatRoom as ChatRoomType } from '../types';
+import { getDatabase, ref, onValue } from 'firebase/database';
+import type { User, Message, ChatRoom as ChatRoomType } from '../types';
 
 interface ChatRoomProps {
   currentRoom: string | null;
@@ -13,13 +13,15 @@ interface ChatRoomProps {
 }
 
 const ChatRoom: React.FC<ChatRoomProps> = ({ currentRoom, currentUser }) => {
-  const { addMessage } = useStore();
+  const { addMessage, rooms, toggleSettings } = useStore();
   const [messages, setMessages] = useState<Message[]>([]);
   const [message, setMessage] = useState('');
   const [showCustomization, setShowCustomization] = useState(false);
   const [isGeneratingJoke, setIsGeneratingJoke] = useState(false);
   const [streamedResponse, setStreamedResponse] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const currentRoomData = rooms.find(r => r.id === currentRoom);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -28,8 +30,8 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentRoom, currentUser }) => {
   useEffect(() => {
     if (!currentRoom) return;
 
-    const db = getDB();
-    const messagesRef = ref(db, `rooms/${currentRoom}/messages`);
+    const database = getDatabase();
+    const messagesRef = ref(database, `rooms/${currentRoom}/messages`);
     
     const unsubscribe = onValue(messagesRef, (snapshot) => {
       const messagesData = snapshot.val();
@@ -76,7 +78,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentRoom, currentUser }) => {
     }
   }, [streamedResponse]);
 
-  if (!currentRoom || !currentUser) {
+  if (!currentRoom || !currentUser || !currentRoomData) {
     return <div className="flex-1 bg-gray-900 p-4">Sélectionne une room pour commencer...</div>;
   }
 
@@ -84,17 +86,42 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentRoom, currentUser }) => {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex justify-between items-center p-4 border-b border-gray-800">
-        <h2 className="text-xl font-bold">{currentRoom}</h2>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">{currentRoomData.icon}</span>
+          <h2 className="text-xl font-bold">{currentRoomData.name}</h2>
+          <div className="flex items-center gap-2 text-sm text-purple-400">
+            <Users className="w-4 h-4" />
+            <span>{currentRoomData.users?.length || 0}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
           <button
             onClick={() => setShowCustomization(true)}
-            className="p-2 hover:bg-gray-800 rounded-full"
+            className="p-2 hover:bg-gray-800 rounded-full transition-colors"
+            title="Modifier la room"
           >
             <Edit className="w-5 h-5" />
           </button>
-          <button className="p-2 hover:bg-gray-800 rounded-full">
-            <Users className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleSettings}
+              className="p-2 hover:bg-gray-800 rounded-full transition-colors"
+              title="Paramètres"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+            <div className="w-10 h-10 rounded-full overflow-hidden bg-purple-500/20 flex items-center justify-center">
+              {currentUser.avatar ? (
+                <img 
+                  src={currentUser.avatar} 
+                  alt={currentUser.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-lg">{currentUser.name.charAt(0).toUpperCase()}</span>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -118,23 +145,12 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentRoom, currentUser }) => {
         />
       </div>
 
-      {showCustomization && (
+      {showCustomization && currentRoomData && (
         <RoomCustomization
-          room={
-            {
-              id: currentRoom || '',
-              name: currentRoom || '',
-              icon: '🌙',
-              messages: messages,
-              users: [],
-              isPermanent: false,
-              isBot: false
-            } as ChatRoomType
-          }
+          room={currentRoomData}
           onClose={() => setShowCustomization(false)}
         />
       )}
-      <div ref={messagesEndRef} />
     </div>
   );
 };

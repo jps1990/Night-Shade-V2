@@ -5,14 +5,18 @@ import { ChatRoom } from '../types';
 
 const RoomList: React.FC = () => {
   const { rooms = [], currentRoom, setCurrentRoom, deleteRoom } = useStore();
+  const { rooms, currentRoom, setCurrentRoom, deleteRoom } = useStore();
 
-  const handleDeleteRoom = (roomId: string) => {
-    if (window.confirm('Are you sure you want to delete this room?')) {
-      deleteRoom(roomId);
+  const handleDeleteRoom = async (roomId: string) => {
+    if (window.confirm('Êtes-vous sûr de vouloir supprimer cette room ?')) {
+      await deleteRoom(roomId);
+      if (currentRoom === roomId) {
+        setCurrentRoom(null);
+      }
     }
   };
 
-  // Separate rooms into categories
+  // Séparer les rooms par catégorie
   const botRooms = rooms.filter(room => room.isBot && room.isPermanent);
   const userRooms = rooms.filter(room => !room.isPermanent && !room.isBot);
   const suggestionRoom = rooms.find(room => room.id === 'suggestions');
@@ -20,64 +24,66 @@ const RoomList: React.FC = () => {
   const RoomItem = ({ room }: { room: ChatRoom }) => (
     <div
       onClick={() => setCurrentRoom(room.id)}
-      className={`w-full flex items-center justify-between px-4 py-2 rounded-lg transition-all cursor-pointer ${
+      className={`w-full flex items-center justify-between px-4 py-2 rounded-lg transition-colors cursor-pointer group ${
         currentRoom === room.id
           ? 'bg-purple-500/30'
           : 'hover:bg-purple-500/20'
       }`}
     >
-      <div className="flex items-center gap-2 min-w-0">
-        {room.isBot ? (
-          <Bot className="w-4 h-4 flex-shrink-0" />
-        ) : room.id === 'suggestions' ? (
-          <Lightbulb className="w-4 h-4 flex-shrink-0" />
-        ) : (
-          <Hash className="w-4 h-4 flex-shrink-0" />
-        )}
+      <div className="flex items-center gap-3 overflow-hidden">
+        <span className="text-xl">{room.icon}</span>
         <span className="truncate">{room.name}</span>
-      </div>
-      <div className="flex items-center gap-2 ml-2">
-        <Users className="w-3 h-3 text-purple-400" />
-        <span className="text-sm text-purple-400">{room.users.length}</span>
-        {!room.isPermanent && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDeleteRoom(room.id);
-            }}
-            className="p-1 hover:bg-red-500/20 rounded-full transition-colors"
-          >
-            <Trash2 className="w-3 h-3 text-red-400" />
-          </button>
+        {room.isBot && (
+          <Bot className="w-4 h-4 text-purple-400" />
         )}
+        <div className="flex items-center gap-2 text-sm text-purple-400">
+          <span>{room.users?.length || 0}</span>
+        </div>
       </div>
+      {!room.isPermanent && (
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDeleteRoom(room.id);
+          }}
+          className="p-1 hover:bg-purple-500/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+        >
+          <Trash2 className="w-4 h-4" />
+        </div>
+      )}
     </div>
   );
 
   return (
-    <div className="space-y-6">
-      {/* Bot Rooms */}
-      <div className="space-y-2">
-        <h2 className="text-xs font-semibold text-purple-400 uppercase px-4">Bot Rooms</h2>
+    <div className="flex flex-col h-full space-y-4">
+      {/* Bot Rooms - Fixed at top */}
+      <div className="space-y-1">
+        <h3 className="text-xs font-semibold uppercase text-purple-400 px-4 py-2">
+          Bot Rooms
+        </h3>
         {botRooms.map(room => (
           <RoomItem key={room.id} room={room} />
         ))}
       </div>
 
-      {/* User Rooms */}
-      {userRooms.length > 0 && (
-        <div className="space-y-2">
-          <h2 className="text-xs font-semibold text-purple-400 uppercase px-4">User Rooms</h2>
+      {/* User Rooms - Scrollable */}
+      <div className="flex-1 min-h-0">
+        <h3 className="text-xs font-semibold uppercase text-purple-400 px-4 py-2 sticky top-0 bg-black/90 backdrop-blur-sm z-10">
+          User Rooms
+        </h3>
+        <div className="space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-500/20 scrollbar-track-transparent hover:scrollbar-thumb-purple-500/30 pr-2">
           {userRooms.map(room => (
             <RoomItem key={room.id} room={room} />
           ))}
         </div>
-      )}
+      </div>
 
-      {/* Suggestions Room */}
+      {/* Suggestions Room - Fixed at bottom */}
       {suggestionRoom && (
-        <div className="space-y-2">
-          <h2 className="text-xs font-semibold text-purple-400 uppercase px-4">Suggestions</h2>
+        <div className="space-y-1 pt-2 border-t border-purple-500/20">
+          <h3 className="text-xs font-semibold uppercase text-purple-400 px-4 py-2">
+            Suggestions
+          </h3>
           <RoomItem room={suggestionRoom} />
         </div>
       )}
