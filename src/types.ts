@@ -27,7 +27,11 @@ export interface ChatRoom {
 }
 
 export interface Bot {
-  generateResponse: (message: string, context?: string) => Promise<Message>;
+  generateResponse: (
+    message: string, 
+    context?: string,
+    onStream?: (text: string) => void
+  ) => Promise<Message>;
   reset: () => void;
 }
 

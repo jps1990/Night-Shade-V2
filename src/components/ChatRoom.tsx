@@ -5,7 +5,8 @@ import { MessageInput } from './MessageInput';
 import { MessageList } from './MessageList';
 import { RoomCustomization } from './RoomCustomization';
 import { getDatabase, ref, onValue } from 'firebase/database';
-import type { User, Message, ChatRoom as ChatRoomType } from '../types';
+import type { User, Message } from '../types';
+import { jester, grok } from '../utils/bots';
 
 interface ChatRoomProps {
   currentRoom: string | null;
@@ -20,12 +21,22 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentRoom, currentUser }) => {
   const [isGeneratingJoke, setIsGeneratingJoke] = useState(false);
   const [streamedResponse, setStreamedResponse] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageCountRef = useRef(0);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const currentRoomData = rooms.find(r => r.id === currentRoom);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, [currentRoom]);
 
   useEffect(() => {
     if (!currentRoom) return;
@@ -48,11 +59,25 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentRoom, currentUser }) => {
         .sort((a, b) => a.timestamp - b.timestamp);
 
       setMessages(messageArray);
-      scrollToBottom();
     });
 
     return () => unsubscribe();
-  }, [currentRoom, scrollToBottom]);
+  }, [currentRoom]);
+
+  const handleRandomBotResponse = async () => {
+    const bot = Math.random() > 0.5 ? jester : grok;
+    const botResponse = await bot.generateResponse(
+      "", 
+      currentRoomData?.name || "",
+      setStreamedResponse
+    );
+    await addMessage(currentRoom!, {
+      content: botResponse.content,
+      userId: 'system',
+      isBot: true,
+      botName: botResponse.botName
+    });
+  };
 
   const handleSend = async () => {
     if (!message.trim() || !currentRoom || !currentUser) return;
@@ -65,6 +90,30 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentRoom, currentUser }) => {
         isBot: false
       });
       setMessage('');
+
+      if (currentRoomData?.isBot) {
+        const bot = currentRoomData.id === 'jester-asylum' ? jester : grok;
+        const botResponse = await bot.generateResponse(
+          message, 
+          currentRoomData.name,
+          setStreamedResponse
+        );
+        await addMessage(currentRoom, {
+          content: botResponse.content,
+          userId: 'system',
+          isBot: true,
+          botName: botResponse.botName
+        });
+      } else if (!currentRoomData?.isPermanent) {
+        messageCountRef.current += 1;
+        
+        if (messageCountRef.current >= 3) {
+          messageCountRef.current = 0;
+          if (Math.random() < 0.33) {
+            await handleRandomBotResponse();
+          }
+        }
+      }
     } catch (error) {
       console.error('Error sending message:', error);
     } finally {
@@ -130,6 +179,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentRoom, currentUser }) => {
         <MessageList 
           messages={messages} 
           currentUser={currentUser} 
+          currentRoom={currentRoom}
           messagesEndRef={messagesEndRef}
         />
       </div>
@@ -142,6 +192,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentRoom, currentUser }) => {
           onSend={handleSend}
           isGeneratingJoke={isGeneratingJoke}
           streamedResponse={streamedResponse}
+          inputRef={inputRef}
         />
       </div>
 

@@ -32,7 +32,7 @@ interface StoreActions {
   setRooms: (rooms: ChatRoom[]) => void;
 }
 
-export const useStore = create<StoreState & StoreActions>((set, _get) => {
+export const useStore = create<StoreState & StoreActions>((set, get) => {
   initFirebase();
   const database = getDatabase();
 
@@ -81,8 +81,50 @@ export const useStore = create<StoreState & StoreActions>((set, _get) => {
     initialized: false,
 
     // Actions
-    setCurrentUser: (user) => set({ currentUser: user }),
-    setCurrentRoom: (roomId) => set({ currentRoom: roomId }),
+    setCurrentUser: async (user) => {
+      const state = get();
+      const prevUser = state.currentUser;
+      const currentRoom = state.currentRoom;
+      const database = getDatabase();
+
+      // Si l'ancien utilisateur quitte
+      if (prevUser && currentRoom && database) {
+        const userRoomRef = ref(database, `rooms/${currentRoom}/users/${prevUser.id}`);
+        await firebaseSet(userRoomRef, null);
+      }
+
+      // Si un nouvel utilisateur arrive
+      if (user && currentRoom && database) {
+        const userRoomRef = ref(database, `rooms/${currentRoom}/users/${user.id}`);
+        await firebaseSet(userRoomRef, user);
+      }
+
+      set({ currentUser: user });
+      if (user) {
+        if (!state.initialized) {
+          await state.initializeBotRooms();
+        }
+      }
+    },
+    setCurrentRoom: async (roomId) => {
+      const prevRoom = get().currentRoom;
+      const currentUser = get().currentUser;
+      const database = getDatabase();
+
+      // Si l'utilisateur quitte une room
+      if (prevRoom && currentUser && database) {
+        const prevRoomRef = ref(database, `rooms/${prevRoom}/users/${currentUser.id}`);
+        await firebaseSet(prevRoomRef, null);
+      }
+
+      // Si l'utilisateur rejoint une nouvelle room
+      if (roomId && currentUser && database) {
+        const newRoomRef = ref(database, `rooms/${roomId}/users/${currentUser.id}`);
+        await firebaseSet(newRoomRef, currentUser);
+      }
+
+      set({ currentRoom: roomId });
+    },
     toggleSettings: () => set((state) => ({ showSettings: !state.showSettings })),
     setInitialized: (value) => set({ initialized: value }),
     setRooms: (rooms) => set({ rooms }),

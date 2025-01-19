@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { RefObject } from 'react';
 
 interface MessageInputProps {
   message: string;
@@ -7,6 +7,7 @@ interface MessageInputProps {
   isGeneratingJoke: boolean;
   streamedResponse: string;
   disabled?: boolean;
+  inputRef: RefObject<HTMLInputElement>;
 }
 
 export const MessageInput: React.FC<MessageInputProps> = ({
@@ -14,12 +15,14 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   setMessage,
   onSend,
   isGeneratingJoke,
-  streamedResponse
+  streamedResponse,
+  inputRef
 }) => {
   return (
     <div className="p-4 border-t border-gray-800">
       <div className="flex gap-2">
         <input
+          ref={inputRef}
           type="text"
           value={message}
           onChange={(e) => setMessage(e.target.value)}

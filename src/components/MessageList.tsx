@@ -4,13 +4,19 @@ import { fr } from 'date-fns/locale';
 import { useStore } from '../store';
 import { Message, User } from '../types';
 
-interface Props {
+interface MessageListProps {
   messages: Message[];
   currentUser: User | null;
+  currentRoom: string | null;
   messagesEndRef: React.RefObject<HTMLDivElement>;
 }
 
-export const MessageList: React.FC<Props> = ({ messages, currentUser, messagesEndRef }) => {
+export const MessageList: React.FC<MessageListProps> = ({ 
+  messages, 
+  currentUser,
+  currentRoom,
+  messagesEndRef 
+}) => {
   const { rooms } = useStore();
 
   const getUserInfo = (userId: string): { name: string; avatar?: string } => {
@@ -21,8 +27,14 @@ export const MessageList: React.FC<Props> = ({ messages, currentUser, messagesEn
       };
     }
 
-    for (const room of rooms) {
-      const user = room.users.find(u => u.id === userId);
+    const room = rooms.find(r => r.id === currentRoom);
+    if (room?.users) {
+      // Convertir l'objet users en tableau si nécessaire
+      const usersArray = Array.isArray(room.users) 
+        ? room.users 
+        : Object.values(room.users) as User[];
+        
+      const user = usersArray.find(u => u.id === userId);
       if (user) {
         return {
           name: user.name,
@@ -54,19 +66,19 @@ export const MessageList: React.FC<Props> = ({ messages, currentUser, messagesEn
               <div className="flex items-center gap-2">
                 {!isCurrentUser && (
                   <div className="w-8 h-8 rounded-full overflow-hidden bg-purple-500/20 flex items-center justify-center">
-                    {userInfo.avatar ? (
+                    {userInfo?.avatar ? (
                       <img 
                         src={userInfo.avatar} 
                         alt={userInfo.name}
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span className="text-lg">{userInfo.name.charAt(0).toUpperCase()}</span>
+                      <span className="text-lg">{userInfo?.name.charAt(0).toUpperCase()}</span>
                     )}
                   </div>
                 )}
                 <div className={`text-sm opacity-70 ${isCurrentUser ? 'text-right' : 'text-left'}`}>
-                  {userInfo.name}
+                  {userInfo?.name}
                 </div>
               </div>
               <div className={`p-3 rounded-lg ${

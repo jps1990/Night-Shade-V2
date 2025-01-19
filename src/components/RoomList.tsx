@@ -6,6 +6,13 @@ import { ChatRoom } from '../types';
 const RoomList: React.FC = () => {
   const { rooms, currentRoom, setCurrentRoom, deleteRoom } = useStore();
 
+  // Fonction pour obtenir le timestamp du dernier message d'une room
+  const getLastMessageTimestamp = (room: ChatRoom) => {
+    if (!room.messages || Object.keys(room.messages).length === 0) return 0;
+    const messages = Object.values(room.messages);
+    return Math.max(...messages.map(msg => msg.timestamp));
+  };
+
   const handleDeleteRoom = async (roomId: string) => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer cette room ?')) {
       await deleteRoom(roomId);
@@ -15,9 +22,15 @@ const RoomList: React.FC = () => {
     }
   };
 
-  // Séparer les rooms par catégorie
-  const botRooms = rooms.filter(room => room.isBot && room.isPermanent);
-  const userRooms = rooms.filter(room => !room.isPermanent && !room.isBot);
+  // Séparer et trier les rooms par catégorie
+  const botRooms = rooms
+    .filter(room => room.isBot && room.isPermanent)
+    .sort((a, b) => getLastMessageTimestamp(b) - getLastMessageTimestamp(a));
+
+  const userRooms = rooms
+    .filter(room => !room.isPermanent && !room.isBot)
+    .sort((a, b) => getLastMessageTimestamp(b) - getLastMessageTimestamp(a));
+
   const suggestionRoom = rooms.find(room => room.id === 'suggestions');
 
   const getBotIcon = (roomId: string, defaultIcon: string) => {
