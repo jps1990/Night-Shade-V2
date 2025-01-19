@@ -1,10 +1,9 @@
 import React from 'react';
-import { Hash, Bot, Users, Trash2, Lightbulb } from 'lucide-react';
+import { Bot, Users, Trash2, Lightbulb } from 'lucide-react';
 import { useStore } from '../store';
 import { ChatRoom } from '../types';
 
 const RoomList: React.FC = () => {
-  const { rooms = [], currentRoom, setCurrentRoom, deleteRoom } = useStore();
   const { rooms, currentRoom, setCurrentRoom, deleteRoom } = useStore();
 
   const handleDeleteRoom = async (roomId: string) => {
@@ -21,6 +20,17 @@ const RoomList: React.FC = () => {
   const userRooms = rooms.filter(room => !room.isPermanent && !room.isBot);
   const suggestionRoom = rooms.find(room => room.id === 'suggestions');
 
+  const getBotIcon = (roomId: string, defaultIcon: string) => {
+    switch (roomId) {
+      case 'jester-asylum':
+        return '🃏';
+      case 'grok-domain':
+        return '⚔️';
+      default:
+        return defaultIcon;
+    }
+  };
+
   const RoomItem = ({ room }: { room: ChatRoom }) => (
     <div
       onClick={() => setCurrentRoom(room.id)}
@@ -31,12 +41,15 @@ const RoomList: React.FC = () => {
       }`}
     >
       <div className="flex items-center gap-3 overflow-hidden">
-        <span className="text-xl">{room.icon}</span>
+        <span className="text-xl">{room.isBot ? getBotIcon(room.id, room.icon) : room.icon}</span>
         <span className="truncate">{room.name}</span>
-        {room.isBot && (
+        {room.isBot ? (
           <Bot className="w-4 h-4 text-purple-400" />
+        ) : room.id === 'suggestions' && (
+          <Lightbulb className="w-4 h-4 text-purple-400" />
         )}
         <div className="flex items-center gap-2 text-sm text-purple-400">
+          <Users className="w-4 h-4" />
           <span>{room.users?.length || 0}</span>
         </div>
       </div>
@@ -55,9 +68,9 @@ const RoomList: React.FC = () => {
   );
 
   return (
-    <div className="flex flex-col h-full space-y-4">
+    <div className="flex flex-col h-full">
       {/* Bot Rooms - Fixed at top */}
-      <div className="space-y-1">
+      <div className="space-y-1 mb-2">
         <h3 className="text-xs font-semibold uppercase text-purple-400 px-4 py-2">
           Bot Rooms
         </h3>
@@ -67,21 +80,21 @@ const RoomList: React.FC = () => {
       </div>
 
       {/* User Rooms - Scrollable */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
         <h3 className="text-xs font-semibold uppercase text-purple-400 px-4 py-2 sticky top-0 bg-black/90 backdrop-blur-sm z-10">
           User Rooms
         </h3>
-        <div className="space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-500/20 scrollbar-track-transparent hover:scrollbar-thumb-purple-500/30 pr-2">
+        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-500/20 scrollbar-track-transparent hover:scrollbar-thumb-purple-500/30 pr-2 space-y-1">
           {userRooms.map(room => (
             <RoomItem key={room.id} room={room} />
           ))}
         </div>
       </div>
 
-      {/* Suggestions Room - Fixed at bottom */}
+      {/* Suggestions Room - Fixed at bottom with more space */}
       {suggestionRoom && (
-        <div className="space-y-1 pt-2 border-t border-purple-500/20">
-          <h3 className="text-xs font-semibold uppercase text-purple-400 px-4 py-2">
+        <div className="mt-4 pt-2 border-t border-purple-500/20 mb-10">
+          <h3 className="text-xs font-semibold uppercase text-purple-400 px-4 py-1">
             Suggestions
           </h3>
           <RoomItem room={suggestionRoom} />

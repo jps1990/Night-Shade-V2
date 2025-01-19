@@ -6,10 +6,9 @@ import {
   getDatabase, 
   ref, 
   set as firebaseSet, 
-  update as firebaseUpdate, 
-  get as firebaseGet,
-  onValue,
-  DatabaseReference 
+  update as firebaseUpdate,
+  get as dbGet,
+  onValue
 } from 'firebase/database';
 
 interface StoreState {
@@ -33,8 +32,26 @@ interface StoreActions {
   setRooms: (rooms: ChatRoom[]) => void;
 }
 
-export const useStore = create<StoreState & StoreActions>((set, get) => {
+export const useStore = create<StoreState & StoreActions>((set, _get) => {
+  initFirebase();
   const database = getDatabase();
+
+  // Subscribe to rooms changes
+  if (database) {
+    const roomsRef = ref(database, 'rooms');
+    onValue(roomsRef, (snapshot) => {
+      const roomsData = snapshot.val();
+      if (roomsData) {
+        const roomsList = Object.entries(roomsData).map(([id, room]: [string, any]) => ({
+          id,
+          ...room
+        }));
+        set({ rooms: roomsList });
+      } else {
+        set({ rooms: [] });
+      }
+    });
+  }
 
   const addMessageToRoom = async (roomId: string, message: Partial<Message>) => {
     if (!database) return;
@@ -133,7 +150,7 @@ export const useStore = create<StoreState & StoreActions>((set, get) => {
       try {
         for (const room of defaultRooms) {
           const roomRef = ref(database, `rooms/${room.id}`);
-          const snapshot = await firebaseGet(roomRef);
+          const snapshot = await dbGet(roomRef);
           
           if (!snapshot.exists()) {
             await firebaseSet(roomRef, room);

@@ -1,5 +1,10 @@
 import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, onValue, get } from 'firebase/database';
+import { 
+  getDatabase, 
+  ref, 
+  onValue, 
+  get as dbGet 
+} from 'firebase/database';
 import type { User, ChatRoom } from '../types';
 
 let app: ReturnType<typeof initializeApp> | null = null;
@@ -81,6 +86,6 @@ export function subscribeToUsers(callback: (users: User[]) => void) {
 export async function getRoom(roomId: string) {
   if (!database) return null;
   const roomRef = ref(database, `rooms/${roomId}`);
-  const snapshot = await get(roomRef);
+  const snapshot = await dbGet(roomRef);
   return snapshot.val();
 }

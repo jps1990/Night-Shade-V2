@@ -1,5 +1,13 @@
 import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, set, push, update, onValue, get } from 'firebase/database';
+import { 
+  getDatabase, 
+  ref, 
+  set, 
+  push, 
+  update, 
+  onValue, 
+  get as dbGet 
+} from 'firebase/database';
 import { User, ChatRoom, Message } from './types.ts';
 import { nanoid } from 'nanoid';
 const firebaseConfig = {
@@ -72,7 +80,7 @@ export const cleanupExpiredMessages = () => {
 export async function getRooms() {
   if (!database) return [];
   const roomsRef = ref(database, 'rooms');
-  const snapshot = await get(roomsRef);
+  const snapshot = await dbGet(roomsRef);
   return Object.entries(snapshot.val() || {}).map(([id, room]: [string, any]) => ({
     id,
     ...room
@@ -82,7 +90,7 @@ export async function getRooms() {
 export async function getRoom(roomId: string) {
   if (!database) return null;
   const roomRef = ref(database, `rooms/${roomId}`);
-  const snapshot = await get(roomRef);
+  const snapshot = await dbGet(roomRef);
   return snapshot.val();
 }
 
