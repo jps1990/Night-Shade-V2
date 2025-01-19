@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { Ghost, Plus } from 'lucide-react';
 import { useStore } from './store';
 import ChatRoom from './components/ChatRoom';
